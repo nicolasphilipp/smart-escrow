@@ -6,6 +6,8 @@ use cardano/transaction.{
 use escrow
 use escrow/types.{Accept, Datum, Redeemer, Refund}
 
+// TODO fix tests
+
 test accept_escrow() {
   let datum =
     Datum {
