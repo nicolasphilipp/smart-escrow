@@ -1,5 +1,6 @@
 # escrow.py
 from opshin.prelude import *
+from opshin.std.builtins import *
 
 
 @dataclass()
@@ -9,17 +10,23 @@ class EscrowDatum(PlutusData):
   price: int
   seller_deposit: int
   buyer_deposit: int
+  product_hash: bytes
+  nonce: int
 
 
 @dataclass
 class Accept(PlutusData):
   CONSTR_ID = 0
+  nonce: int
   
 @dataclass
-class Refund(PlutusData):
+class Complaint(PlutusData):
   CONSTR_ID = 1
+  sig: bytes # signature of str(product_hash) + str(nonce), signed with seller's secret key
+  product_hash: bytes
+  nonce: int
   
-Redeemer = Union[Accept, Refund]
+Redeemer = Union[Accept, Complaint]
 
 
 def get_outputs_by_key(context: ScriptContext, key: PubKeyHash) -> List[TxOut]:
@@ -55,25 +62,34 @@ def validator(datum: EscrowDatum, redeemer: Redeemer, context: ScriptContext) ->
   
   assert contract_balance == datum.seller_deposit + datum.buyer_deposit + datum.price, "Contract balance mismatch"
   
+  seller_outputs = get_outputs_by_key(context, datum.seller_pubkeyhash)
+  buyer_outputs = get_outputs_by_key(context, datum.buyer_pubkeyhash)
+  
   if isinstance(redeemer, Accept):
       # only buyer can trigger accept
       assert datum.buyer_pubkeyhash in tx_info.signatories, "Required signature missing"
-      
-      seller_outputs = get_outputs_by_key(context, datum.seller_pubkeyhash)
+      assert datum.nonce == redeemer.nonce, "Nonce mismatch"
       assert get_ada_from_outputs(seller_outputs) == datum.seller_deposit + datum.price, "Seller output mismatch"
-
-      buyer_outputs = get_outputs_by_key(context, datum.buyer_pubkeyhash)
       assert get_ada_from_outputs(buyer_outputs) == datum.buyer_deposit, "Buyer output mismatch"
-
-  elif isinstance(redeemer, Refund):
-      # both seller and buyer must sign to refund
+      
+  elif isinstance(redeemer, Complaint):
+      # both seller and buyer must sign to submit complaint, so both have to agree on the provided values
       assert datum.buyer_pubkeyhash in tx_info.signatories and datum.seller_pubkeyhash in tx_info.signatories, "Required signature missing"
-
-      seller_outputs = get_outputs_by_key(context, datum.seller_pubkeyhash)
-      assert get_ada_from_outputs(seller_outputs) == datum.seller_deposit, "Seller output mismatch"
-
-      buyer_outputs = get_outputs_by_key(context, datum.buyer_pubkeyhash)
-      assert get_ada_from_outputs(buyer_outputs) == datum.buyer_deposit + datum.price, "Buyer output mismatch"
-
+      assert datum.nonce == redeemer.nonce, "Nonce mismatch"
+      
+      if verify_ed25519_signature(datum.seller_pubkeyhash, (str(redeemer.product_hash) + str(redeemer.nonce)).encode(), redeemer.sig):        
+        if datum.product_hash == redeemer.product_hash:
+          # buyer tried to cheat, seller gets his deposit and price back, buyer loses his deposit
+          assert get_ada_from_outputs(seller_outputs) == datum.seller_deposit + datum.price, "Seller output mismatch"
+          assert get_ada_from_outputs(buyer_outputs) == 0, "Buyer output mismatch"
+        else:
+          # seller tried to cheat, buyer gets his deposit and price back, seller loses his deposit
+          assert get_ada_from_outputs(seller_outputs) == 0, "Seller output mismatch"
+          assert get_ada_from_outputs(buyer_outputs) == datum.buyer_deposit + datum.price, "Buyer output mismatch"
+      else:
+        # seller tried to cheat
+        assert get_ada_from_outputs(seller_outputs) == 0, "Seller output mismatch"
+        assert get_ada_from_outputs(buyer_outputs) == datum.buyer_deposit + datum.price, "Buyer output mismatch" 
+        
   else:
     assert False, "Unsupported"
