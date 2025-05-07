@@ -2,9 +2,6 @@
 
 pragma solidity >=0.8.2 <0.9.0;
 
-import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
-import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
-
 /**
  * @title Escrow
  */
@@ -15,8 +12,8 @@ contract Escrow {
     uint public price;
     uint sellerDeposit;
     uint buyerDeposit;
-    bytes productHash;
-    bytes nonce;
+    bytes32 productHash;
+    bytes32 nonce;
 
     mapping(address => uint) pendingReturns;
 
@@ -30,20 +27,12 @@ contract Escrow {
 
     /// Only the buyer can call this function.
     error OnlyBuyer();
-    /// Only the seller can call this function.
-    error OnlySeller();
     /// The function cannot be called at the current state.
     error InvalidState();
         
     modifier onlyBuyer() {
         if (msg.sender != buyer)
             revert OnlyBuyer();
-        _;
-    }
-
-    modifier onlySeller() {
-        if (msg.sender != seller)
-            revert OnlySeller();
         _;
     }
 
@@ -57,8 +46,8 @@ contract Escrow {
     event Accepted();
     event Settled();
 
-    constructor(address payable _seller, address payable _buyer, uint _price, uint _sellerDeposit, uint _buyerDeposit, bytes memory _productHash, bytes memory _nonce) payable
-        onlySeller
+    constructor(address payable _seller, address payable _buyer, uint _price, uint _sellerDeposit, uint _buyerDeposit, bytes32 _productHash, bytes32 _nonce) payable
+        condition(msg.sender == _seller)
         condition(_seller != address(0x0) && _buyer != address(0x0))
         condition(msg.value == _sellerDeposit)
     {
@@ -80,7 +69,10 @@ contract Escrow {
         inState(State.Created)
         condition(msg.value == price + buyerDeposit)
     {
+        //require(state == State.Created, "Invalid state");
+        //require(msg.sender == buyer, "The caller must be the buyer");
         //require(msg.value == price + buyerDeposit, "Invalid amount");
+        emit Deposited();
         state = State.Locked;
     }
 
@@ -100,6 +92,8 @@ contract Escrow {
         onlyBuyer 
         inState(State.Locked)
     {
+        //require(state == State.Locked, "Invalid state");
+        //require(msg.sender == buyer, "The caller must be the buyer");
         emit Accepted();
         state = State.Completed;
 
@@ -109,20 +103,18 @@ contract Escrow {
     }
 
     // needs to be signed by both seller and buyer in multi sig wallet
-    function complaint(bytes calldata sig, bytes calldata _productHash, bytes calldata _nonce) external 
+    function complaint(bytes32 _product, bytes32 _nonce) external 
+        inState(State.Locked)
         condition(keccak256(abi.encodePacked(nonce)) == keccak256(abi.encodePacked(_nonce)))
     {
+        //require(state == State.Locked, "Invalid state");
+        //require(keccak256(abi.encodePacked(nonce)) == keccak256(abi.encodePacked(_nonce)), "Nonce mismatch");
         emit Settled();
         state = State.Released;
 
-        if(SignatureChecker.isValidSignatureNow(seller, MessageHashUtils.toEthSignedMessageHash(abi.encodePacked(_productHash, _nonce)), sig)) {
-            if(keccak256(abi.encodePacked(productHash)) == keccak256(abi.encodePacked(_productHash))) {
-                // buyer tried to cheat, their deposit stays locked
-                pendingReturns[seller] = price + sellerDeposit;
-            } else {
-                // seller tried to cheat, their deposit stays locked
-                pendingReturns[buyer] = price + buyerDeposit;
-            }
+        if (keccak256(abi.encodePacked(_product)) == productHash) {
+            // buyer tried to cheat, their deposit stays locked
+            pendingReturns[seller] = price + sellerDeposit;
         } else {
             // seller tried to cheat, their deposit stays locked
             pendingReturns[buyer] = price + buyerDeposit;
