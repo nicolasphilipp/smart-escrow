@@ -12,9 +12,5 @@ pub type Datum {
 
 pub type Redeemer {
   Accept { r_nonce: ByteArray }
-  Complaint {
-    r_nonce: ByteArray,
-    r_signature: ByteArray,
-    r_product_hash: ByteArray,
-  }
+  Complaint { r_nonce: ByteArray, r_product: ByteArray }
 }

@@ -1,6 +1,5 @@
 use aiken/collection/list
-use aiken/crypto.{verify_ed25519_signature}
-use aiken/primitive/bytearray.{concat}
+use aiken/crypto.{keccak_256}
 use cardano/transaction.{OutputReference, Transaction}
 use escrow/types.{Accept, Complaint, Datum, Redeemer}
 use escrow/utils
@@ -59,7 +58,7 @@ validator escrow {
           buyer_must_get_deposit?,
         }
       }
-      Complaint { r_nonce, r_signature, r_product_hash } -> {
+      Complaint { r_nonce, r_product } -> {
         // both seller and buyer must sign to submit complaint
         let must_be_signed =
           list.has(self.extra_signatories, buyer) && list.has(
@@ -68,39 +67,19 @@ validator escrow {
           )
         let must_match_nonce = nonce == r_nonce
 
-        if verify_ed25519_signature(
-          seller,
-          concat(r_product_hash, nonce),
-          r_signature,
-        ) {
-          if product_hash == r_product_hash {
-            // buyer tried to cheat
-            let seller_must_get_deposit =
-              utils.get_ada_from_outputs(seller_outputs) == seller_deposit + price
-            let buyer_must_get_nothing =
-              utils.get_ada_from_outputs(buyer_outputs) == 0
+        if keccak_256(r_product) == product_hash {
+          // buyer tried to cheat
+          let seller_must_get_deposit =
+            utils.get_ada_from_outputs(seller_outputs) == seller_deposit + price
+          let buyer_must_get_nothing =
+            utils.get_ada_from_outputs(buyer_outputs) == 0
 
-            and {
-              must_be_signed?,
-              must_match_nonce?,
-              must_match_total?,
-              seller_must_get_deposit?,
-              buyer_must_get_nothing?,
-            }
-          } else {
-            // seller tried to cheat
-            let seller_must_get_nothing =
-              utils.get_ada_from_outputs(seller_outputs) == 0
-            let buyer_must_get_deposit =
-              utils.get_ada_from_outputs(buyer_outputs) == buyer_deposit + price
-
-            and {
-              must_be_signed?,
-              must_match_nonce?,
-              must_match_total?,
-              seller_must_get_nothing?,
-              buyer_must_get_deposit?,
-            }
+          and {
+            must_be_signed?,
+            must_match_nonce?,
+            must_match_total?,
+            seller_must_get_deposit?,
+            buyer_must_get_nothing?,
           }
         } else {
           // seller tried to cheat
