@@ -22,8 +22,7 @@ class Accept(PlutusData):
 @dataclass
 class Complaint(PlutusData):
   CONSTR_ID = 1
-  sig: bytes # signature of str(product_hash) + str(nonce), signed with seller's secret key
-  product_hash: bytes
+  product: bytes
   nonce: int
   
 Redeemer = Union[Accept, Complaint]
@@ -77,19 +76,14 @@ def validator(datum: EscrowDatum, redeemer: Redeemer, context: ScriptContext) ->
       assert datum.buyer_pubkeyhash in tx_info.signatories and datum.seller_pubkeyhash in tx_info.signatories, "Required signature missing"
       assert datum.nonce == redeemer.nonce, "Nonce mismatch"
       
-      if verify_ed25519_signature(datum.seller_pubkeyhash, (str(redeemer.product_hash) + str(redeemer.nonce)).encode(), redeemer.sig):        
-        if datum.product_hash == redeemer.product_hash:
-          # buyer tried to cheat, seller gets his deposit and price back, buyer loses his deposit
-          assert get_ada_from_outputs(seller_outputs) == datum.seller_deposit + datum.price, "Seller output mismatch"
-          assert get_ada_from_outputs(buyer_outputs) == 0, "Buyer output mismatch"
-        else:
-          # seller tried to cheat, buyer gets his deposit and price back, seller loses his deposit
-          assert get_ada_from_outputs(seller_outputs) == 0, "Seller output mismatch"
-          assert get_ada_from_outputs(buyer_outputs) == datum.buyer_deposit + datum.price, "Buyer output mismatch"
+      if blake2b_256(redeemer.product) == datum.product_hash:
+        # buyer tried to cheat, seller gets his deposit and price back, buyer loses his deposit
+        assert get_ada_from_outputs(seller_outputs) == datum.seller_deposit + datum.price, "Seller output mismatch"
+        assert get_ada_from_outputs(buyer_outputs) == 0, "Buyer output mismatch"
       else:
-        # seller tried to cheat
+        # seller tried to cheat, buyer gets his deposit and price back, seller loses his deposit
         assert get_ada_from_outputs(seller_outputs) == 0, "Seller output mismatch"
-        assert get_ada_from_outputs(buyer_outputs) == datum.buyer_deposit + datum.price, "Buyer output mismatch" 
-        
+        assert get_ada_from_outputs(buyer_outputs) == datum.buyer_deposit + datum.price, "Buyer output mismatch"
+          
   else:
     assert False, "Unsupported"
