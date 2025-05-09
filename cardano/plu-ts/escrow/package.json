@@ -1,0 +1,21 @@
+{
+  "name": "escrow",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc -p ./tsconfig.json && tsc-alias -p ./tsconfig.json",
+    "start": "npm run build && node dist/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "tsc-alias": "^1.8.16",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@harmoniclabs/plu-ts": "^0.9.0",
+    "keccak256": "^1.0.6"
+  }
+}
