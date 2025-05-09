@@ -1,0 +1,91 @@
+When
+    [Case
+        (Deposit
+            (Role "Seller")
+            (Role "Seller")
+            (Token "" "")
+            (ConstantParam "Seller deposit")
+        )
+        (When
+            [Case
+                (Deposit
+                    (Role "Buyer")
+                    (Role "Buyer")
+                    (Token "" "")
+                    (ConstantParam "Buyer deposit")
+                )
+                (When
+                    [Case
+                        (Deposit
+                            (Role "Seller")
+                            (Role "Buyer")
+                            (Token "" "")
+                            (ConstantParam "Price")
+                        )
+                        (When
+                            [Case
+                                (Choice
+                                    (ChoiceId
+                                        "Accept"
+                                        (Role "Buyer")
+                                    )
+                                    [Bound 0 0]
+                                )
+                                Close , Case
+                                (Choice
+                                    (ChoiceId
+                                        "Complaint"
+                                        (Role "Buyer")
+                                    )
+                                    [Bound 1 1]
+                                )
+                                (Pay
+                                    (Role "Seller")
+                                    (Account (Role "Buyer"))
+                                    (Token "" "")
+                                    (ConstantParam "Price")
+                                    (When
+                                        [Case
+                                            (Choice
+                                                (ChoiceId
+                                                    "Confirm"
+                                                    (Role "Seller")
+                                                )
+                                                [Bound 0 0]
+                                            )
+                                            Close , Case
+                                            (Choice
+                                                (ChoiceId
+                                                    "Dispute"
+                                                    (Role "Seller")
+                                                )
+                                                [Bound 1 1]
+                                            )
+                                            (Pay
+                                                (Role "Seller")
+                                                (Party (Address "addr_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"))
+                                                (Token "" "")
+                                                (ConstantParam "Seller deposit")
+                                                (Pay
+                                                    (Role "Buyer")
+                                                    (Party (Address "addr_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"))
+                                                    (Token "" "")
+                                                    (ConstantParam "Buyer deposit")
+                                                    Close 
+                                                )
+                                            )]
+                                        (TimeParam "Confirm/Dispute by seller timeout")
+                                        Close 
+                                    )
+                                )]
+                            (TimeParam "Accept/Complaint by buyer timeout")
+                            Close 
+                        )]
+                    (TimeParam "Price deposit by buyer timeout")
+                    Close 
+                )]
+            (TimeParam "Deposit by buyer timeout")
+            Close 
+        )]
+    (TimeParam "Deposit by seller timeout")
+    Close 
