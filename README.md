@@ -1,3 +1,14 @@
-## Important notice: not production ready⚠️
+## ⚠️Important notice: not production ready⚠️
 
-Escrow implemented as smart contract in multiple languages including Aiken and Opshin on Cardano.
+Escrow implemented as smart contract in multiple languages on different platforms including:
+
+### Cardano
+- Aiken
+- Marlowe
+- Opshin
+- Plinth
+- Plu-ts
+
+### Ethereum
+- Solidity
+- Vyper
