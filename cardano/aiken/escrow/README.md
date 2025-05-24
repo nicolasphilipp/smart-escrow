@@ -1,4 +1,4 @@
-# escrow
+# README
 
 Write validators in the `validators` folder, and supporting functions in the `lib` folder using `.ak` as a file extension.
 
@@ -16,15 +16,7 @@ validator my_first_validator {
 aiken build
 ```
 
-## Configuring
-
-**aiken.toml**
-```toml
-[config.default]
-network_id = 41
-```
-
-Or, alternatively, write conditional environment modules under `env`.
+This will generate a [CIP-0057 Plutus blueprint](https://cips.cardano.org/cip/CIP-57) as `plutus.json` at the root of the project. The blueprint contains the generated on-chain code that will be executed on-chain and a hash of the validator(s) to construct addresses.
 
 ## Testing
 
@@ -50,16 +42,6 @@ To run only tests matching the string `foo`, do:
 aiken check -m foo
 ```
 
-## Documentation
-
-If you're writing a library, you might want to generate an HTML documentation for it.
-
-Use:
-
-```sh
-aiken docs
-```
-
 ## Resources
 
-Find more on the [Aiken's user manual](https://aiken-lang.org).
+Find more in [Aiken's user manual](https://aiken-lang.org).
